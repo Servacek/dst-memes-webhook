@@ -1,3 +1,4 @@
+# DST Memes Webhook
 Simple webhook for posting memes from Klei forums.
 
 Every time this file is executed, it will post the next meme from the configured forum thread
