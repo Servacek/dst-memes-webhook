@@ -5,6 +5,7 @@ Every time this file is executed, it will post the next meme from the configured
 remembering the page and comment index of the last one.
 
 ## Dependencies
+- Node.js v18 or higher
 - Cheerio - web scrapping library
 - config - configuration manager library
 
