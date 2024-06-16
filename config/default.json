@@ -1,4 +1,5 @@
 {
     "forum_post_url": "https://forums.kleientertainment.com/forums/topic/66717-maxwell-memes-the-sequel",
-    "minimum_upvote_count": 5
+    "minimum_upvote_count": 5,
+    "application_owned_webhook": false
 }

@@ -68,7 +68,10 @@ async function getPageMetadata(pageIndex) {
 
     const metadata = {comments: []}
 
+    var commentsPerPage = 0;
     $("article").each(function (index) {
+        commentsPerPage += 1;
+
         const comment_content = $(this).find("[data-role='commentContent']")
         const comment = {
             author: {
@@ -106,6 +109,7 @@ async function getPageMetadata(pageIndex) {
 
         comment.index = metadata.comments.length;
         comment.page_index = pageIndex;
+        comment.index_in_page = pageIndex == 1 ? index + 1 : index;
         comment.id = Number($(this).attr("id").split("_")[1]);
         comment.image = {
             url: normalizeUrl(images.first().attr("src")),
@@ -115,6 +119,9 @@ async function getPageMetadata(pageIndex) {
     })
 
     cache.metadata = metadata
+    cache.metadata.total_page_count = Number($("input[name='page']").attr("max"));
+    cache.metadata.comments_per_page = commentsPerPage;
+
     cache.page_index = pageIndex
 
     return metadata;
@@ -154,11 +161,30 @@ function postMemeComment(comment) {
     const embed = structuredClone(comment);
     embed.color = getRandomColor();
 
+    const sourceUrl = config.get("forum_post_url") + "/?do=findComment&comment=" + comment.id;
+    const totalPostCount = cache.metadata.comments_per_page || "???";
+    const totalPageCount = cache.metadata.total_page_count || "???";
+    embed.footer = {
+        text: "Page " + comment.page_index + " of " + totalPageCount + " | Comment " + (comment.index_in_page + 1) + " of " + totalPostCount,
+    }
+
     const payload = {
         allowed_mentions: { parse: [] },
         embeds: [embed],
-        content: "> [View Original Post](" + config.get("forum_post_url") + "/?do=findComment&comment=" + comment.id + ")"
     };
+    if (config.get("application_owned_webhook")) {
+        payload.components = [{
+            type: 1, // ActionRow
+            components: [
+                {
+                    type: 2, // Button
+                    label: "Zdroj",
+                    style: 5, // Link Button
+                    url: sourceUrl,
+                }
+            ]
+        }]
+    }
 
     fetch(config.get("discord_webhook_url"), {
         method: 'POST',
