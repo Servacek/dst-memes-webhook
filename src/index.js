@@ -26,7 +26,7 @@ const INITIAL_COMMENT_INDEX = 0
 const UPVOTE_REACTION_NAME = "Haha"
 const LIKE_REACTION_NAME = "Like"
 
-const MAX_RETRY_ATTEMPTS = 50;
+const MAX_RETRY_ATTEMPTS = config.get("max_retries") || 100;
 
 //////////////////////////////
 
