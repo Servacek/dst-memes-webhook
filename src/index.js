@@ -55,6 +55,10 @@ function normalizeUrl(url) {
     return (url.startsWith("https://") | url.startsWith("http://")) ? url : "https://" + url.replace(/^[^a-zA-Z0-9]+/, "");
 }
 
+async function ImageExists(url) {
+    return await fetch(url, { method: 'HEAD' }).status !== 404;
+}
+
 async function getPageMetadata(pageIndex) {
     if (cache.metadata && pageIndex == cache.page_index) {
         console.debug("Returning cached metadata...")
@@ -69,54 +73,68 @@ async function getPageMetadata(pageIndex) {
     const metadata = {comments: []}
 
     var commentsPerPage = 0;
-    $("article").each(function (index) {
+    for (let index = 0; index < $("article").length; index++) {
+        const article = $("article").eq(index);
         commentsPerPage += 1;
 
-        const comment_content = $(this).find("[data-role='commentContent']")
+        const comment_content = article.find("[data-role='commentContent']")
         const comment = {
             author: {
-                name: $(this).find("span[id='cAuthorPane_author']").first().text(),
-                url: normalizeUrl($(this).find("a.ipsUserPhoto").attr("href")),
-                icon_url: normalizeUrl($(this).find("a.ipsUserPhoto ").find("img").attr("src"))
+                name: article.find("span[id='cAuthorPane_author']").first().text(),
+                url: normalizeUrl(article.find("a.ipsUserPhoto").attr("href")),
+                icon_url: normalizeUrl(article.find("a.ipsUserPhoto ").find("img").attr("src"))
             },
             description: comment_content.find("p").text().trim(),
-            timestamp: $(this).find("time").attr("datetime"),
+            timestamp: article.find("time").attr("datetime"),
         }
 
         // TODO: Possibly add support for citations?
-        // const quote_content = $(this).find("div.ipsQuote_citation").text()
-        // $(this).find("div.ipsQuote_citation").text("> " + quote_content);
-        if ($(this).find("div.ipsQuote_citation").length > 0) {
+        // const quote_content = article.find("div.ipsQuote_citation").text()
+        // article.find("div.ipsQuote_citation").text("> " + quote_content);
+        if (article.find("div.ipsQuote_citation").length > 0) {
             console.debug(index, "Skipping quote comment")
-            return; // Ignore quote comments
-        };
-
-        const upvote_count = Number($(this).find("li.ipsReact_reactCount").find("[alt='" + UPVOTE_REACTION_NAME + "']").parent().parent().text().trim())
-        const like_count = Number($(this).find("li.ipsReact_reactCount").find("[alt='" + LIKE_REACTION_NAME + "']").parent().parent().text().trim())
-        if (upvote_count < config.get("minimum_upvote_count") && like_count < config.get("minimum_upvote_count") * 10) {
-            console.debug(index, "Skipping comment with less than " + config.get("minimum_upvote_count") + " upvotes", upvote_count, like_count)
-            return; // Ignore comments with less than 5 upvotes
+            continue; // Ignore quote comments
         }
 
-        const images = comment_content.find("img[src]")
+        const upvote_count = Number(article.find("li.ipsReact_reactCount").find("[alt='" + UPVOTE_REACTION_NAME + "']").parent().parent().text().trim())
+        const like_count = Number(article.find("li.ipsReact_reactCount").find("[alt='" + LIKE_REACTION_NAME + "']").parent().parent().text().trim())
+        if (upvote_count < config.get("minimum_upvote_count") && like_count < config.get("minimum_upvote_count") * 10) {
+            console.debug(index, "Skipping comment with less than " + config.get("minimum_upvote_count") + " upvotes", upvote_count, like_count)
+            continue; // Ignore comments with less than 5 upvotes
+        }
+
+        const images = comment_content.find("img[src]").toArray();
         if (images.length <= 0 || images.length > 5) {
-            return;
+            continue;
         }
         // if (images.length != 1) {
         //     console.debug(index, "Skipping comment with more than one image")
-        //     return; // Ignore comments with more than one image (supports gifs as well)
+        //     continue; // Ignore comments with more than one image (supports gifs as well)
         // }
 
         comment.index = metadata.comments.length;
         comment.page_index = pageIndex;
         comment.index_in_page = pageIndex == 1 ? index + 1 : index;
-        comment.id = Number($(this).attr("id").split("_")[1]);
-        comment.image = {
-            url: normalizeUrl(images.first().attr("src")),
+        comment.id = Number(article.attr("id").split("_")[1]);
+        // TODO: Maybe add support for posts with multiple images at some point?
+        const image_urls = images.map(el => normalizeUrl($(el).attr("src")));
+        for (const url of image_urls) {
+            if (await ImageExists(url)) {
+                comment.image = {
+                    url: normalizeUrl(url),
+                }
+                break;
+            } else {
+                console.warn("Image", url, "of post", pageIndex, "page", comment.index_in_page, "doesn't exist!")
+            }
         }
 
-        metadata.comments.push(comment);
-    })
+        if (comment.image) {
+            metadata.comments.push(comment);
+        } else {
+            console.error("No image for metadata comment.")
+        }
+    }
 
     cache.metadata = metadata
     cache.metadata.total_page_count = Number($("input[name='page']").attr("max"));
@@ -199,6 +217,7 @@ function postMemeComment(comment) {
 
 attemptToGetMemeComment()
     .then(comment => {
+        console.log(ImageExists("https://cdn.forums.klei.com/monthly_2017_10/59f590021f66b_dedinside.thumb.png.8d8912b85bda504c6d9ae8b12e9d1800.png"))
         if (comment) {
             postMemeComment(comment);
         } else {
