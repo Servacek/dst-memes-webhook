@@ -204,26 +204,31 @@ function postMemeComment(comment) {
         }]
     }
 
-    fetch(config.get("discord_webhook_url"), {
+    return fetch(config.get("discord_webhook_url"), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-    }).then(response =>
-        console.log("[" + response.status + "] " + response.statusText)
-    );
+    })
 }
 
 //////////////////////////////
 
 attemptToGetMemeComment()
     .then(comment => {
-        console.log(ImageExists("https://cdn.forums.klei.com/monthly_2017_10/59f590021f66b_dedinside.thumb.png.8d8912b85bda504c6d9ae8b12e9d1800.png"))
         if (comment) {
-            postMemeComment(comment);
+            postMemeComment(comment).then(response => {
+                console.log("[" + response.status + "] " + response.statusText);
+
+                if (response.ok) {
+                    console.log("Meme successfully posted!");
+                } else {
+                    console.error("Failed to post the meme to discord! Maybe next time...")
+                }
+            });
         } else {
-            console.error("No comment found after multiple attempts!");
+            console.error("No comment found after multiple attempts! Not retrying anymore...");
         }
     })
-    .finally(function () { // Save the cache.
+    .finally(() => {
         fs.writeFileSync(CACHE_FILE_PATH, JSON.stringify(cache));
-    });
+    })
